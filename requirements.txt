@@ -1,0 +1,12 @@
+pandas
+xlrd # data is in excel format
+numpy
+scikit-learn
+imbalanced-learn
+omegaconf
+pytest
+tensorflow-cpu
+mlflow
+holidays
+typer
+tqdm
