@@ -1,0 +1,61 @@
+version: "3.11"
+services:
+  training:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile_training
+    container_name: training
+    volumes:
+      - ../mlruns:/app/mlruns
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+  mlflow:
+    restart: always
+    image: mlflow
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.mlflow
+    container_name: mlflow
+    ports:
+      - "50000:50000"
+    environment:
+      - BACKEND=postgresql://${DB_USER:-postgres}:${DB_PSW:-temppassword}@db:5432/${DB_NAME:-mlflowdb}
+      - ARTIFACTS=mlruns
+    volumes:
+      - ../mlruns:/app/mlruns
+    command:
+      - sh
+      - -c
+      - mlflow server
+        --backend-store-uri $${BACKEND}
+        --default-artifact-root $${ARTIFACTS}
+        --host 0.0.0.0
+        --port 50000
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    restart: always
+    image: postgres:15
+    container_name: mlflow_db
+    user: postgres
+    ports:
+      - "${DB_PORT:-55432}:5432"
+    environment:
+      - POSTGRES_DB=${DB_NAME:-mlflowdb}
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PSW:-temppassword}
+    volumes:
+      - ../pgdb_data:/var/lib/postgresql/data
+    healthcheck:
+      test: /usr/bin/pg_isready
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
+

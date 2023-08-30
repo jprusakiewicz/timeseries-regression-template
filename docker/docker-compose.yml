@@ -1,0 +1,18 @@
+version: "3.11"
+services:
+  training:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile_training
+    container_name: training
+    volumes:
+      - ../mlruns:/app/mlruns
+
+  prediction:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile_predict
+    container_name: prediction
+    volumes:
+      - ../mlruns:/app/mlruns
+

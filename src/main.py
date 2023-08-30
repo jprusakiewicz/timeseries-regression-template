@@ -1,6 +1,7 @@
 import glob
 import json
 import sys
+
 from omegaconf import OmegaConf
 from sklearn.pipeline import make_pipeline
 import mlflow
@@ -11,22 +12,16 @@ from tqdm import tqdm
 sys.path.append('src')
 
 from data.read_data import read_data
-from data.preprocess import preprocess_data
+from data.preprocess import Preprocessor
+from data.data_models import TrainingData
 from models.sklearn import build_model as build_sklearn_model
 from models.kerass import build_model as build_keras_model
 from evaluate import evaluate_model
 
 
-def run(dict_config: dict | None = None) -> dict:
-    if dict_config is None:
-        config = OmegaConf.load('config/test_keras_config.yaml')
-    else:
-        config = OmegaConf.create(dict_config)
-    data = read_data()
-    x_train_2d, x_test_2d, x_train_3d, x_test_3d, y_train, y_test = preprocess_data(data, config.preprocessing)
-
+def run_experiment(training_data: TrainingData, config) -> dict:
     try:
-        mlflow.set_tracking_uri(config.mlflow.tracking_uri)
+        mlflow.set_tracking_uri("http://localhost:50000")
     except NewConnectionError as e:
         print("MLFLOW connection error. Is mlflow running?")
         raise e
@@ -38,19 +33,19 @@ def run(dict_config: dict | None = None) -> dict:
         match config.model.model_library:
             case "keras":
                 mlflow.tensorflow.autolog()
-                model = build_keras_model(x_train_3d, y_train, config.model)
-                x_test = x_test_3d
+                model = build_keras_model(training_data.x_train_3d, training_data.y_train, config.model)
+                x_test = training_data.x_test_3d
 
             case "sklearn":
                 mlflow.sklearn.autolog()
                 model = make_pipeline(build_sklearn_model(config.model))
-                model.fit(x_train_2d, y_train)
-                x_test = x_test_2d
+                model.fit(training_data.x_train_2d, training_data.y_train)
+                x_test = training_data.x_test_2d
 
             case _:
                 raise ValueError(f"unsupported model library: {config.model.model_library}")
 
-        metrics = evaluate_model(model=model, x=x_test, y=y_test)
+        metrics = evaluate_model(model=model, x=x_test, y=training_data.y_test)
         mlflow.log_metrics(metrics)
 
     return metrics
@@ -86,6 +81,22 @@ def run_from_jsons(parallel=False):
             print(metrics)
 
 
+def run(dict_config: dict | None = None):
+    config_path = 'config/test_sklearn_config.yaml'
+
+    if dict_config is None:
+        config = OmegaConf.load(config_path)
+    else:
+        config = OmegaConf.create(dict_config)
+    data = read_data()
+    preprocessor = Preprocessor(config.preprocessing)
+
+    training_data = preprocessor.preprocess_training_data(data)
+    result = run_experiment(training_data, config)
+
+    return result
+
+
 if __name__ == "__main__":
-    # run_from_yaml()
-    run_from_jsons()
+    run_from_yaml()
+    # run_from_jsons()

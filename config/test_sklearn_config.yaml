@@ -1,9 +1,8 @@
-mlflow:
-  tracking_uri: "http://localhost:5000"
-
 preprocessing:
   additional_features: True
-  sequence_length: 27
+  main_feature_name: "DCOILWTICO"
+  main_feature_column_idx: 0
+  sequence_length: 16
   use_scaler: False
   train_test_split:
     test_size: 0.3

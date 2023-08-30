@@ -1,0 +1,28 @@
+FROM python:3.11 as base
+
+
+FROM base as install
+
+RUN apt-get update && apt-get install -y git make
+WORKDIR /app
+COPY requirements.txt ./
+RUN pip install --user -r requirements.txt
+
+COPY ./ ./
+
+FROM base
+ENV PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get upgrade -y && apt-get clean && \
+  groupadd --gid 10001 python && useradd --uid 10001 --gid python --shell /bin/bash --create-home python
+
+WORKDIR /app
+COPY --from=install --chown=10001:0 /root/.local /home/python/.local
+COPY --from=install --chown=10001:0 /app/src/ ./src
+COPY --from=install --chown=10001:0 /app/data/ ./data
+COPY --from=install --chown=10001:0 /app/config/ ./config
+
+
+USER 10001
+
+CMD ["python3", "src/run_prediction.py"]
